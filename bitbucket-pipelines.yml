@@ -1,0 +1,54 @@
+pipelines:
+  default:
+    - parallel:
+        - step:
+            name: Push code to CodeCommit
+            clone:
+              depth: full
+            script:
+              - git remote add codecommit "$CODE_COMMIT_REPO"
+              - git push --force -u codecommit "$BITBUCKET_BRANCH"
+              - git push codecommit --tags --force
+
+        - step:
+            name: Build and test web app
+            image: atlassian/default-image:3
+            size: 2x
+            script:
+              - apt-get update && apt-get install -y awscli
+              - echo "test" > VERSION
+              - make -C services/webapp build-test ENV_STAGE=test
+            services:
+              - docker
+            caches:
+              - docker
+
+        - step:
+            name: Test backend
+            image: atlassian/default-image:3
+            size: 2x
+            script:
+              - echo "test" > VERSION
+              - make -C services/backend test ENV_STAGE=test
+            services:
+              - docker
+            caches:
+              - docker
+
+        - step:
+            name: Test async-workers
+            image: atlassian/default-image:3
+            size: 2x
+            script:
+              - apt-get update && apt-get install -y awscli
+              - echo "test" > VERSION
+              - make -C services/workers test ENV_STAGE=test
+            services:
+              - docker
+            caches:
+              - docker
+
+definitions:
+  services:
+    docker:
+      memory: 7128
